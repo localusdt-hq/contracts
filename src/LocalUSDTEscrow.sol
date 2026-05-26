@@ -26,7 +26,6 @@ pragma solidity ^0.8.24;
  */
 
 contract LocalUSDTEscrow {
-
     /***********************
     +    USDT Interface    +
     ***********************/
@@ -143,25 +142,17 @@ contract LocalUSDTEscrow {
     /// @dev Safely call USDT transfer(). Handles non-standard USDT on Ethereum
     ///      which does not return a bool.
     function _safeTransfer(address _to, uint256 _value) private {
-        (bool _success, bytes memory _data) = usdtToken.call(
-            abi.encodeWithSignature("transfer(address,uint256)", _to, _value)
-        );
-        require(
-            _success && (_data.length == 0 || abi.decode(_data, (bool))),
-            "USDT transfer failed"
-        );
+        (bool _success, bytes memory _data) =
+            usdtToken.call(abi.encodeWithSignature("transfer(address,uint256)", _to, _value));
+        require(_success && (_data.length == 0 || abi.decode(_data, (bool))), "USDT transfer failed");
     }
 
     /// @dev Safely call USDT transferFrom(). Handles non-standard USDT on Ethereum
     ///      which does not return a bool.
     function _safeTransferFrom(address _from, address _to, uint256 _value) private {
-        (bool _success, bytes memory _data) = usdtToken.call(
-            abi.encodeWithSignature("transferFrom(address,address,uint256)", _from, _to, _value)
-        );
-        require(
-            _success && (_data.length == 0 || abi.decode(_data, (bool))),
-            "USDT transferFrom failed"
-        );
+        (bool _success, bytes memory _data) =
+            usdtToken.call(abi.encodeWithSignature("transferFrom(address,address,uint256)", _from, _to, _value));
+        require(_success && (_data.length == 0 || abi.decode(_data, (bool))), "USDT transferFrom failed");
     }
 
     /***********************
@@ -193,23 +184,14 @@ contract LocalUSDTEscrow {
         bytes32 _s
     ) external {
         // Compute the trade hash — the unique identifier for this escrow
-        bytes32 _tradeHash = keccak256(abi.encodePacked(
-            _tradeID, _seller, _buyer, _value, _fee
-        ));
+        bytes32 _tradeHash = keccak256(abi.encodePacked(_tradeID, _seller, _buyer, _value, _fee));
 
         // Require that trade does not already exist
         require(!escrows[_tradeHash].exists, "Trade already exists");
 
         // Verify the invitation signature from the platform
-        bytes32 _invitationHash = keccak256(abi.encodePacked(
-            _tradeHash,
-            _paymentWindowInSeconds,
-            _expiry
-        ));
-        require(
-            recoverAddress(_invitationHash, _v, _r, _s) == inviterAddress,
-            "Invitation signature was not valid"
-        );
+        bytes32 _invitationHash = keccak256(abi.encodePacked(_tradeHash, _paymentWindowInSeconds, _expiry));
+        require(recoverAddress(_invitationHash, _v, _r, _s) == inviterAddress, "Invitation signature was not valid");
 
         // Check expiry
         require(block.timestamp < _expiry, "Signature has expired");
@@ -221,9 +203,8 @@ contract LocalUSDTEscrow {
         _safeTransferFrom(_seller, address(this), _value);
 
         // Determine the seller's cancel window
-        uint32 _sellerCanCancelAfter = _paymentWindowInSeconds == 0
-            ? 1
-            : uint32(block.timestamp) + _paymentWindowInSeconds;
+        uint32 _sellerCanCancelAfter =
+            _paymentWindowInSeconds == 0 ? 1 : uint32(block.timestamp) + _paymentWindowInSeconds;
 
         // Store the escrow
         escrows[_tradeHash] = Escrow(true, _sellerCanCancelAfter, 0);
@@ -257,14 +238,8 @@ contract LocalUSDTEscrow {
         uint8 _buyerPercent
     ) external onlyArbitrator {
         // Verify the dispute token was signed by buyer or seller
-        address _signature = recoverAddress(keccak256(abi.encodePacked(
-            _tradeID,
-            INSTRUCTION_RESOLVE
-        )), _v, _r, _s);
-        require(
-            _signature == _buyer || _signature == _seller,
-            "Must be buyer or seller"
-        );
+        address _signature = recoverAddress(keccak256(abi.encodePacked(_tradeID, INSTRUCTION_RESOLVE)), _v, _r, _s);
+        require(_signature == _buyer || _signature == _seller, "Must be buyer or seller");
 
         Escrow memory _escrow;
         bytes32 _tradeHash;
@@ -298,61 +273,46 @@ contract LocalUSDTEscrow {
     ***********************/
 
     /// @notice Release USDT in escrow to the buyer. Called by the seller.
-    function release(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
+    function release(bytes16 _tradeID, address _seller, address _buyer, uint256 _value, uint16 _fee)
+        external
+        returns (bool)
+    {
         require(msg.sender == _seller, "Must be seller");
         return doRelease(_tradeID, _seller, _buyer, _value, _fee, 0);
     }
 
     /// @notice Disable the seller from cancelling (mark as paid). Called by the buyer.
-    function disableSellerCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
+    function disableSellerCancel(bytes16 _tradeID, address _seller, address _buyer, uint256 _value, uint16 _fee)
+        external
+        returns (bool)
+    {
         require(msg.sender == _buyer, "Must be buyer");
         return doDisableSellerCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
     }
 
     /// @notice Cancel the escrow as a buyer. Returns USDT to seller.
-    function buyerCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
+    function buyerCancel(bytes16 _tradeID, address _seller, address _buyer, uint256 _value, uint16 _fee)
+        external
+        returns (bool)
+    {
         require(msg.sender == _buyer, "Must be buyer");
         return doBuyerCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
     }
 
     /// @notice Cancel the escrow as a seller. Only if payment window expired.
-    function sellerCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
+    function sellerCancel(bytes16 _tradeID, address _seller, address _buyer, uint256 _value, uint16 _fee)
+        external
+        returns (bool)
+    {
         require(msg.sender == _seller, "Must be seller");
         return doSellerCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
     }
 
     /// @notice Request to cancel as a seller. Starts countdown timer.
-    function sellerRequestCancel(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) external returns (bool) {
+    function sellerRequestCancel(bytes16 _tradeID, address _seller, address _buyer, uint256 _value, uint16 _fee)
+        external
+        returns (bool)
+    {
         require(msg.sender == _seller, "Must be seller");
         return doSellerRequestCancel(_tradeID, _seller, _buyer, _value, _fee, 0);
     }
@@ -387,9 +347,7 @@ contract LocalUSDTEscrow {
         uint8[] memory _instructionByte
     ) public returns (bool[] memory _results) {
         _results = new bool[](_tradeID.length);
-        uint128 _additionalGas = relayers[msg.sender]
-            ? uint128(32720 / _tradeID.length)
-            : 0;
+        uint128 _additionalGas = relayers[msg.sender] ? uint128(32720 / _tradeID.length) : 0;
         for (uint256 i = 0; i < _tradeID.length; i++) {
             _results[i] = relay(
                 _tradeID[i],
@@ -442,9 +400,7 @@ contract LocalUSDTEscrow {
     }
 
     /// @notice Change the requestCancellationMinimumTime. Only the owner can call this.
-    function setRequestCancellationMinimumTime(
-        uint32 _newRequestCancellationMinimumTime
-    ) external onlyOwner {
+    function setRequestCancellationMinimumTime(uint32 _newRequestCancellationMinimumTime) external onlyOwner {
         requestCancellationMinimumTime = _newRequestCancellationMinimumTime;
     }
 
@@ -452,18 +408,10 @@ contract LocalUSDTEscrow {
     ///         Cannot be used to withdraw escrowed USDT — only the surplus above
     ///         what is owed to active escrows and collected fees.
     ///         This is a safety valve, not a backdoor.
-    function recoverStuckTokens(
-        address _tokenContract,
-        address _to,
-        uint256 _value
-    ) external onlyOwner {
-        (bool _success, bytes memory _data) = _tokenContract.call(
-            abi.encodeWithSignature("transfer(address,uint256)", _to, _value)
-        );
-        require(
-            _success && (_data.length == 0 || abi.decode(_data, (bool))),
-            "Token transfer failed"
-        );
+    function recoverStuckTokens(address _tokenContract, address _to, uint256 _value) external onlyOwner {
+        (bool _success, bytes memory _data) =
+            _tokenContract.call(abi.encodeWithSignature("transfer(address,uint256)", _to, _value));
+        require(_success && (_data.length == 0 || abi.decode(_data, (bool))), "Token transfer failed");
     }
 
     /***********************
@@ -484,37 +432,20 @@ contract LocalUSDTEscrow {
         uint8 _instructionByte,
         uint128 _additionalGas
     ) private returns (bool) {
-        address _relayedSender = getRelayedSender(
-            _tradeID,
-            _instructionByte,
-            _maximumGasPrice,
-            _v,
-            _r,
-            _s
-        );
+        address _relayedSender = getRelayedSender(_tradeID, _instructionByte, _maximumGasPrice, _v, _r, _s);
         if (_relayedSender == _buyer) {
             if (_instructionByte == INSTRUCTION_SELLER_CANNOT_CANCEL) {
-                return doDisableSellerCancel(
-                    _tradeID, _seller, _buyer, _value, _fee, _additionalGas
-                );
+                return doDisableSellerCancel(_tradeID, _seller, _buyer, _value, _fee, _additionalGas);
             } else if (_instructionByte == INSTRUCTION_BUYER_CANCEL) {
-                return doBuyerCancel(
-                    _tradeID, _seller, _buyer, _value, _fee, _additionalGas
-                );
+                return doBuyerCancel(_tradeID, _seller, _buyer, _value, _fee, _additionalGas);
             }
         } else if (_relayedSender == _seller) {
             if (_instructionByte == INSTRUCTION_RELEASE) {
-                return doRelease(
-                    _tradeID, _seller, _buyer, _value, _fee, _additionalGas
-                );
+                return doRelease(_tradeID, _seller, _buyer, _value, _fee, _additionalGas);
             } else if (_instructionByte == INSTRUCTION_SELLER_CANCEL) {
-                return doSellerCancel(
-                    _tradeID, _seller, _buyer, _value, _fee, _additionalGas
-                );
+                return doSellerCancel(_tradeID, _seller, _buyer, _value, _fee, _additionalGas);
             } else if (_instructionByte == INSTRUCTION_SELLER_REQUEST_CANCEL) {
-                return doSellerRequestCancel(
-                    _tradeID, _seller, _buyer, _value, _fee, _additionalGas
-                );
+                return doSellerRequestCancel(_tradeID, _seller, _buyer, _value, _fee, _additionalGas);
             }
         }
         return false;
@@ -532,12 +463,7 @@ contract LocalUSDTEscrow {
     }
 
     /// @dev Transfer USDT minus fees to the recipient.
-    function transferMinusFees(
-        address _to,
-        uint256 _value,
-        uint128 _totalGasFeesSpentByRelayer,
-        uint16 _fee
-    ) private {
+    function transferMinusFees(address _to, uint256 _value, uint128 _totalGasFeesSpentByRelayer, uint16 _fee) private {
         uint256 _platformFee = _value * _fee / 10000;
         uint256 _totalFees = _platformFee + _totalGasFeesSpentByRelayer;
         if (_totalFees > _value) {
@@ -551,6 +477,7 @@ contract LocalUSDTEscrow {
     }
 
     uint16 constant GAS_doRelease = 36000;
+
     /// @dev Release USDT to the buyer. Completes the escrow.
     function doRelease(
         bytes16 _tradeID,
@@ -565,10 +492,7 @@ contract LocalUSDTEscrow {
         (_escrow, _tradeHash) = getEscrowAndHash(_tradeID, _seller, _buyer, _value, _fee);
         if (!_escrow.exists) return false;
         uint128 _gasFees = _escrow.totalGasFeesSpentByRelayer
-            + (relayers[msg.sender]
-                ? (GAS_doRelease + _additionalGas) * uint128(tx.gasprice)
-                : 0
-            );
+            + (relayers[msg.sender] ? (GAS_doRelease + _additionalGas) * uint128(tx.gasprice) : 0);
         delete escrows[_tradeHash];
         emit Released(_tradeHash);
         transferMinusFees(_buyer, _value, _gasFees, _fee);
@@ -576,6 +500,7 @@ contract LocalUSDTEscrow {
     }
 
     uint16 constant GAS_doDisableSellerCancel = 16568;
+
     /// @dev Prevent the seller from cancelling. "Mark as paid" by the buyer.
     function doDisableSellerCancel(
         bytes16 _tradeID,
@@ -599,6 +524,7 @@ contract LocalUSDTEscrow {
     }
 
     uint16 constant GAS_doBuyerCancel = 36000;
+
     /// @dev Cancel and return USDT to the seller. No platform fee is deducted.
     function doBuyerCancel(
         bytes16 _tradeID,
@@ -613,10 +539,7 @@ contract LocalUSDTEscrow {
         (_escrow, _tradeHash) = getEscrowAndHash(_tradeID, _seller, _buyer, _value, _fee);
         if (!_escrow.exists) return false;
         uint128 _gasFees = _escrow.totalGasFeesSpentByRelayer
-            + (relayers[msg.sender]
-                ? (GAS_doBuyerCancel + _additionalGas) * uint128(tx.gasprice)
-                : 0
-            );
+            + (relayers[msg.sender] ? (GAS_doBuyerCancel + _additionalGas) * uint128(tx.gasprice) : 0);
         delete escrows[_tradeHash];
         emit CancelledByBuyer(_tradeHash);
         transferMinusFees(_seller, _value, _gasFees, 0);
@@ -624,6 +547,7 @@ contract LocalUSDTEscrow {
     }
 
     uint16 constant GAS_doSellerCancel = 36000;
+
     /// @dev Seller cancels after payment window expires. Returns USDT to seller.
     function doSellerCancel(
         bytes16 _tradeID,
@@ -645,10 +569,7 @@ contract LocalUSDTEscrow {
             return false;
         }
         uint128 _gasFees = _escrow.totalGasFeesSpentByRelayer
-            + (relayers[msg.sender]
-                ? (GAS_doSellerCancel + _additionalGas) * uint128(tx.gasprice)
-                : 0
-            );
+            + (relayers[msg.sender] ? (GAS_doSellerCancel + _additionalGas) * uint128(tx.gasprice) : 0);
         delete escrows[_tradeHash];
         emit CancelledBySeller(_tradeHash);
         transferMinusFees(_seller, _value, _gasFees, 0);
@@ -656,6 +577,7 @@ contract LocalUSDTEscrow {
     }
 
     uint16 constant GAS_doSellerRequestCancel = 17004;
+
     /// @dev Seller requests cancellation. Starts a countdown for the buyer to object.
     function doSellerRequestCancel(
         bytes16 _tradeID,
@@ -670,8 +592,7 @@ contract LocalUSDTEscrow {
         (_escrow, _tradeHash) = getEscrowAndHash(_tradeID, _seller, _buyer, _value, _fee);
         if (!_escrow.exists) return false;
         if (_escrow.sellerCanCancelAfter != 1) return false;
-        escrows[_tradeHash].sellerCanCancelAfter = uint32(block.timestamp)
-            + requestCancellationMinimumTime;
+        escrows[_tradeHash].sellerCanCancelAfter = uint32(block.timestamp) + requestCancellationMinimumTime;
         emit SellerRequestedCancel(_tradeHash);
         if (relayers[msg.sender]) {
             increaseGasSpent(_tradeHash, GAS_doSellerRequestCancel + _additionalGas);
@@ -692,11 +613,7 @@ contract LocalUSDTEscrow {
         bytes32 _r,
         bytes32 _s
     ) private view returns (address) {
-        bytes32 _hash = keccak256(abi.encodePacked(
-            _tradeID,
-            _instructionByte,
-            _maximumGasPrice
-        ));
+        bytes32 _hash = keccak256(abi.encodePacked(_tradeID, _instructionByte, _maximumGasPrice));
         if (tx.gasprice > _maximumGasPrice) {
             return address(0);
         }
@@ -704,30 +621,18 @@ contract LocalUSDTEscrow {
     }
 
     /// @dev Compute the trade hash and return the matching escrow.
-    function getEscrowAndHash(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) private view returns (Escrow memory, bytes32) {
-        bytes32 _tradeHash = keccak256(abi.encodePacked(
-            _tradeID, _seller, _buyer, _value, _fee
-        ));
+    function getEscrowAndHash(bytes16 _tradeID, address _seller, address _buyer, uint256 _value, uint16 _fee)
+        private
+        view
+        returns (Escrow memory, bytes32)
+    {
+        bytes32 _tradeHash = keccak256(abi.encodePacked(_tradeID, _seller, _buyer, _value, _fee));
         return (escrows[_tradeHash], _tradeHash);
     }
 
     /// @dev Recover an Ethereum signed message address.
-    function recoverAddress(
-        bytes32 _h,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
-    ) private pure returns (address) {
-        bytes32 _prefixedHash = keccak256(abi.encodePacked(
-            "\x19Ethereum Signed Message:\n32",
-            _h
-        ));
+    function recoverAddress(bytes32 _h, uint8 _v, bytes32 _r, bytes32 _s) private pure returns (address) {
+        bytes32 _prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _h));
         return ecrecover(_prefixedHash, _v, _r, _s);
     }
 }

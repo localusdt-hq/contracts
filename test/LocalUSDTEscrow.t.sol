@@ -59,18 +59,17 @@ contract MockUSDT {
  *   - Edge cases and reverts
  */
 contract LocalUSDTEscrowTest is Test {
-
     LocalUSDTEscrow public escrow;
     MockUSDT public usdt;
 
     /* -------------------------------------------------- */
     /* Accounts                                            */
     /* -------------------------------------------------- */
-    uint256 constant OWNER_PK      = 0xA11CE;
-    uint256 constant SELLER_PK     = 0xBEEF1;
-    uint256 constant BUYER_PK      = 0xBEEF2;
-    uint256 constant RELAYER_PK    = 0xDE1A7;
-    uint256 constant STRANGER_PK   = 0xBAD;
+    uint256 constant OWNER_PK = 0xA11CE;
+    uint256 constant SELLER_PK = 0xBEEF1;
+    uint256 constant BUYER_PK = 0xBEEF2;
+    uint256 constant RELAYER_PK = 0xDE1A7;
+    uint256 constant STRANGER_PK = 0xBAD;
 
     address owner;
     address seller;
@@ -83,17 +82,17 @@ contract LocalUSDTEscrowTest is Test {
     /* -------------------------------------------------- */
     bytes16 constant TRADE_ID = bytes16(uint128(1));
     uint256 constant TRADE_VALUE = 1000 * 1e6; // 1,000 USDT (6 decimals)
-    uint16  constant FEE = 100; // 1% in 1/10000ths
-    uint32  constant PAYMENT_WINDOW = 1 hours;
+    uint16 constant FEE = 100; // 1% in 1/10000ths
+    uint32 constant PAYMENT_WINDOW = 1 hours;
 
     /* -------------------------------------------------- */
     /* Setup                                               */
     /* -------------------------------------------------- */
     function setUp() public {
-        owner    = vm.addr(OWNER_PK);
-        seller   = vm.addr(SELLER_PK);
-        buyer    = vm.addr(BUYER_PK);
-        relayer  = vm.addr(RELAYER_PK);
+        owner = vm.addr(OWNER_PK);
+        seller = vm.addr(SELLER_PK);
+        buyer = vm.addr(BUYER_PK);
+        relayer = vm.addr(RELAYER_PK);
         stranger = vm.addr(STRANGER_PK);
 
         vm.startPrank(owner);
@@ -102,7 +101,9 @@ contract LocalUSDTEscrowTest is Test {
         escrow.setRelayer(relayer, true);
         vm.stopPrank();
 
-        /** Fund seller with USDT */
+        /**
+         * Fund seller with USDT
+         */
         usdt.mint(seller, 100_000 * 1e6);
     }
 
@@ -111,37 +112,29 @@ contract LocalUSDTEscrowTest is Test {
     /* -------------------------------------------------- */
 
     /// @dev Compute the trade hash the same way the contract does
-    function tradeHash(
-        bytes16 _tradeID,
-        address _seller,
-        address _buyer,
-        uint256 _value,
-        uint16 _fee
-    ) internal pure returns (bytes32) {
+    function tradeHash(bytes16 _tradeID, address _seller, address _buyer, uint256 _value, uint16 _fee)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(_tradeID, _seller, _buyer, _value, _fee));
     }
 
     /// @dev Sign an invitation hash with the owner (inviter) key
-    function signInvitation(
-        bytes32 _tradeHash,
-        uint32 _paymentWindow,
-        uint32 _expiry
-    ) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
+    function signInvitation(bytes32 _tradeHash, uint32 _paymentWindow, uint32 _expiry)
+        internal
+        pure
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
         bytes32 _invHash = keccak256(abi.encodePacked(_tradeHash, _paymentWindow, _expiry));
-        bytes32 _prefixed = keccak256(abi.encodePacked(
-            "\x19Ethereum Signed Message:\n32",
-            _invHash
-        ));
+        bytes32 _prefixed = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _invHash));
         return vm.sign(OWNER_PK, _prefixed);
     }
 
     /// @dev Sign a dispute token as the buyer or seller
     function signDispute(bytes16 _tradeID, uint256 _signerPk) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 _hash = keccak256(abi.encodePacked(_tradeID, uint8(0x06)));
-        bytes32 _prefixed = keccak256(abi.encodePacked(
-            "\x19Ethereum Signed Message:\n32",
-            _hash
-        ));
+        bytes32 _prefixed = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _hash));
         return vm.sign(_signerPk, _prefixed);
     }
 
@@ -153,10 +146,7 @@ contract LocalUSDTEscrowTest is Test {
 
         vm.startPrank(seller);
         usdt.approve(address(escrow), TRADE_VALUE);
-        escrow.createEscrow(
-            TRADE_ID, seller, buyer, TRADE_VALUE, FEE,
-            PAYMENT_WINDOW, _expiry, v, r, s
-        );
+        escrow.createEscrow(TRADE_ID, seller, buyer, TRADE_VALUE, FEE, PAYMENT_WINDOW, _expiry, v, r, s);
         vm.stopPrank();
 
         return _th;
@@ -203,10 +193,7 @@ contract LocalUSDTEscrowTest is Test {
         vm.startPrank(seller);
         usdt.approve(address(escrow), TRADE_VALUE);
         vm.expectRevert("Trade already exists");
-        escrow.createEscrow(
-            TRADE_ID, seller, buyer, TRADE_VALUE, FEE,
-            PAYMENT_WINDOW, _expiry, v, r, s
-        );
+        escrow.createEscrow(TRADE_ID, seller, buyer, TRADE_VALUE, FEE, PAYMENT_WINDOW, _expiry, v, r, s);
         vm.stopPrank();
     }
 
@@ -218,10 +205,7 @@ contract LocalUSDTEscrowTest is Test {
         vm.startPrank(seller);
         usdt.approve(address(escrow), TRADE_VALUE);
         vm.expectRevert("Signature has expired");
-        escrow.createEscrow(
-            TRADE_ID, seller, buyer, TRADE_VALUE, FEE,
-            PAYMENT_WINDOW, _expiry, v, r, s
-        );
+        escrow.createEscrow(TRADE_ID, seller, buyer, TRADE_VALUE, FEE, PAYMENT_WINDOW, _expiry, v, r, s);
         vm.stopPrank();
     }
 
@@ -232,10 +216,7 @@ contract LocalUSDTEscrowTest is Test {
 
         vm.startPrank(seller);
         vm.expectRevert("Value must be > 0");
-        escrow.createEscrow(
-            TRADE_ID, seller, buyer, 0, FEE,
-            PAYMENT_WINDOW, _expiry, v, r, s
-        );
+        escrow.createEscrow(TRADE_ID, seller, buyer, 0, FEE, PAYMENT_WINDOW, _expiry, v, r, s);
         vm.stopPrank();
     }
 
@@ -247,10 +228,7 @@ contract LocalUSDTEscrowTest is Test {
 
         vm.startPrank(seller);
         usdt.approve(address(escrow), TRADE_VALUE);
-        escrow.createEscrow(
-            TRADE_ID, seller, buyer, TRADE_VALUE, FEE,
-            0, _expiry, v, r, s
-        );
+        escrow.createEscrow(TRADE_ID, seller, buyer, TRADE_VALUE, FEE, 0, _expiry, v, r, s);
         vm.stopPrank();
 
         (bool exists, uint32 sellerCanCancelAfter,) = escrow.escrows(_th);
@@ -398,10 +376,7 @@ contract LocalUSDTEscrowTest is Test {
 
         vm.startPrank(seller);
         usdt.approve(address(escrow), TRADE_VALUE);
-        escrow.createEscrow(
-            TRADE_ID, seller, buyer, TRADE_VALUE, FEE,
-            0, _expiry, v, r, s
-        );
+        escrow.createEscrow(TRADE_ID, seller, buyer, TRADE_VALUE, FEE, 0, _expiry, v, r, s);
         vm.stopPrank();
 
         // Seller requests cancel
@@ -410,10 +385,7 @@ contract LocalUSDTEscrowTest is Test {
         assertTrue(success);
 
         (, uint32 sellerCanCancelAfter,) = escrow.escrows(_th);
-        assertEq(
-            sellerCanCancelAfter,
-            uint32(block.timestamp) + escrow.requestCancellationMinimumTime()
-        );
+        assertEq(sellerCanCancelAfter, uint32(block.timestamp) + escrow.requestCancellationMinimumTime());
     }
 
     function test_sellerRequestCancel_nonCashReturnsFalse() public {
@@ -624,10 +596,7 @@ contract LocalUSDTEscrowTest is Test {
         vm.expectEmit(true, false, false, false);
         emit LocalUSDTEscrow.Created(_th);
 
-        escrow.createEscrow(
-            TRADE_ID, seller, buyer, TRADE_VALUE, FEE,
-            PAYMENT_WINDOW, _expiry, v, r, s
-        );
+        escrow.createEscrow(TRADE_ID, seller, buyer, TRADE_VALUE, FEE, PAYMENT_WINDOW, _expiry, v, r, s);
         vm.stopPrank();
     }
 
